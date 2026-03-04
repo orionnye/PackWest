@@ -37,11 +37,13 @@ function randomInRange(min: number, max: number): number {
 
 function renderAll(): void {
   renderGrid(gridContainer, grid(), pieces(), {
-    onDropFromBag: (pieceId, col, row) => {
+    onDropToGrid: (pieceId, col, row, source) => {
       const piece = pieces().find((p) => p.id === pieceId);
-      if (!piece || !canPlacePieceOnGrid(grid(), piece, col, row, pieces())) return;
-      const bagPlacements = pieceBag().placements.filter((p) => p.pieceId !== pieceId);
-      const gridPlacements = [...(grid().placements ?? []), { pieceId, col, row }];
+      const excludePieceId = source === "grid" ? pieceId : undefined;
+      if (!piece || !canPlacePieceOnGrid(grid(), piece, col, row, pieces(), excludePieceId)) return;
+      const bagPlacements =
+        source === "bag" ? pieceBag().placements.filter((p) => p.pieceId !== pieceId) : pieceBag().placements;
+      const gridPlacements = [...(grid().placements ?? []).filter((p) => p.pieceId !== pieceId), { pieceId, col, row }];
       store.resources.pieceBag = { ...pieceBag(), placements: bagPlacements };
       store.resources.grid = { ...grid(), placements: gridPlacements };
       renderAll();

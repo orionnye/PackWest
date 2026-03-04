@@ -1,13 +1,15 @@
 import type { Cell, Grid, Piece, PiecePlacement } from "./types.js";
 import { getPieceBounds, getPieceOutline } from "./piece-utils.js";
 import { canPlacePieceOnGrid } from "./placement.js";
-import { grab, getGrabbed, release, setOnRelease, setGhostSnap, type GrabOffset } from "./grabber.js";
+import { grab, getGrabbed, release, setOnRelease, setGhostSnap, type GrabOffset, type GrabSource } from "./grabber.js";
 import { updateOrCreateDropPreview, removeDropPreview } from "./drop-preview.js";
 
 const CELL_SIZE = 52; /* larger to occupy ~50-60% of layout */
 const MINIMIZED_CELL_SIZE = 8;
+const DROP_CELL_SELECTOR = ".inventory-grid-drop-cell";
 
 export interface GridDisplayCallbacks {
+  onDropToGrid?: (pieceId: string, col: number, row: number, source: GrabSource) => void;
   onDropFromBag?: (pieceId: string, col: number, row: number) => void;
 }
 
@@ -37,7 +39,7 @@ function resolveDropCellAtPoint(
     if (el instanceof HTMLElement && el.classList.contains("inventory-grid-drop-cell")) {
       return el;
     }
-    const candidate = el.closest?.(".inventory-grid-drop-cell");
+    const candidate = el.closest?.(DROP_CELL_SELECTOR);
     if (candidate instanceof HTMLElement) return candidate;
   }
 
@@ -50,6 +52,13 @@ function resolveDropCellAtPoint(
   }
 
   return null;
+}
+
+function getDropCellPosition(cell: HTMLElement): { col: number; row: number } | null {
+  const col = Number(cell.dataset.x);
+  const row = Number(cell.dataset.y);
+  if (Number.isNaN(col) || Number.isNaN(row)) return null;
+  return { col, row };
 }
 
 export function renderGrid(
@@ -102,7 +111,7 @@ export function renderGrid(
   }
 
   wrapper.appendChild(piecesLayer);
-  const dropCells = Array.from(wrapper.querySelectorAll(".inventory-grid-drop-cell")) as HTMLElement[];
+  const dropCells = Array.from(wrapper.querySelectorAll(DROP_CELL_SELECTOR)) as HTMLElement[];
 
   setGhostSnap((ev: MouseEvent) => {
     const g = getGrabbed();
@@ -112,9 +121,9 @@ export function renderGrid(
       removeDropPreview(piecesLayer);
       return null;
     }
-    const col = Number(cell.dataset.x);
-    const row = Number(cell.dataset.y);
-    if (Number.isNaN(col) || Number.isNaN(row)) return null;
+    const dropPos = getDropCellPosition(cell);
+    if (!dropPos) return null;
+    const { col, row } = dropPos;
     const piece = getPieceById(pieces, g.pieceId);
     if (!piece) return null;
     const excludePieceId = g.source === "grid" ? g.pieceId : undefined;
@@ -149,21 +158,23 @@ export function renderGrid(
     });
   });
 
-  if (callbacks?.onDropFromBag) {
+  if (callbacks?.onDropToGrid || callbacks?.onDropFromBag) {
     wrapper.addEventListener("click", (e) => {
       const g = getGrabbed();
-      if (!g || g.source !== "bag") return;
+      if (!g) return;
       if ((e.target as Element).closest(".inventory-grid-piece")) return;
       const piece = getPieceById(pieces, g.pieceId);
       if (!piece) return;
-      const cell = (e.target as Element).closest(".inventory-grid-drop-cell") as HTMLElement | null;
+      const cell = (e.target as Element).closest(DROP_CELL_SELECTOR) as HTMLElement | null;
       if (!cell) return;
-      const col = Number(cell.dataset.x);
-      const row = Number(cell.dataset.y);
-      if (Number.isNaN(col) || Number.isNaN(row)) return;
-      if (!canPlacePieceOnGrid(grid, piece, col, row, pieces)) return;
+      const dropPos = getDropCellPosition(cell);
+      if (!dropPos) return;
+      const { col, row } = dropPos;
+      const excludePieceId = g.source === "grid" ? g.pieceId : undefined;
+      if (!canPlacePieceOnGrid(grid, piece, col, row, pieces, excludePieceId)) return;
       e.stopPropagation();
-      callbacks.onDropFromBag!(g.pieceId, col, row);
+      if (callbacks?.onDropToGrid) callbacks.onDropToGrid(g.pieceId, col, row, g.source);
+      else if (g.source === "bag" && callbacks?.onDropFromBag) callbacks.onDropFromBag(g.pieceId, col, row);
       release();
     });
   }

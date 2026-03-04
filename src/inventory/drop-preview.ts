@@ -3,6 +3,7 @@ import type { Piece } from "./types.js";
 const CELL_CLASS = "inventory-drop-preview-cell";
 const CELL_INVALID_CLASS = "inventory-drop-preview-cell-invalid";
 const PREVIEW_ATTR = "data-drop-preview";
+const PREVIEW_ATTR_SELECTOR = `[${PREVIEW_ATTR}="true"]`;
 
 export function createDropPreviewCells(
   piece: Piece,
@@ -13,6 +14,7 @@ export function createDropPreviewCells(
   isValid: boolean
 ): DocumentFragment {
   const fragment = document.createDocumentFragment();
+  // Render cells directly into the grid overlay to avoid wrapper layout quirks.
   for (const c of piece.cells) {
     const gx = col + c.x;
     const gy = row + c.y;
@@ -28,7 +30,7 @@ export function createDropPreviewCells(
 }
 
 export function removeDropPreview(container: HTMLElement): void {
-  container.querySelectorAll(`[${PREVIEW_ATTR}="true"]`).forEach((el) => el.remove());
+  container.querySelectorAll(PREVIEW_ATTR_SELECTOR).forEach((el) => el.remove());
 }
 
 export function updateOrCreateDropPreview(
