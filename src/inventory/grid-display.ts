@@ -1,7 +1,8 @@
 import type { Cell, Grid, Piece, PiecePlacement } from "./types.js";
 import { getPieceBounds, getPieceOutline } from "./piece-utils.js";
 import { canPlacePieceOnGrid } from "./placement.js";
-import { grab, getGrabbed, release } from "./grabber.js";
+import { grab, getGrabbed, release, setOnRelease, setGhostSnap, type GrabOffset } from "./grabber.js";
+import { updateOrCreateDropPreview, removeDropPreview } from "./drop-preview.js";
 
 const CELL_SIZE = 52; /* larger to occupy ~50-60% of layout */
 const MINIMIZED_CELL_SIZE = 8;
@@ -24,6 +25,31 @@ function getBounds(cells: readonly Cell[]): { minX: number; maxX: number; minY: 
 
 function getPieceById(pieces: readonly Piece[], pieceId: string): Piece | undefined {
   return pieces.find((p) => p.id === pieceId);
+}
+
+function resolveDropCellAtPoint(
+  dropCells: readonly HTMLElement[],
+  clientX: number,
+  clientY: number
+): HTMLElement | null {
+  const elements = document.elementsFromPoint(clientX, clientY);
+  for (const el of elements) {
+    if (el instanceof HTMLElement && el.classList.contains("inventory-grid-drop-cell")) {
+      return el;
+    }
+    const candidate = el.closest?.(".inventory-grid-drop-cell");
+    if (candidate instanceof HTMLElement) return candidate;
+  }
+
+  // Fallback: direct geometry check in case overlay hit-testing misses grid cells.
+  for (const cell of dropCells) {
+    const rect = cell.getBoundingClientRect();
+    if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
+      return cell;
+    }
+  }
+
+  return null;
 }
 
 export function renderGrid(
@@ -76,6 +102,30 @@ export function renderGrid(
   }
 
   wrapper.appendChild(piecesLayer);
+  const dropCells = Array.from(wrapper.querySelectorAll(".inventory-grid-drop-cell")) as HTMLElement[];
+
+  setGhostSnap((ev: MouseEvent) => {
+    const g = getGrabbed();
+    if (!g) return null;
+    const cell = resolveDropCellAtPoint(dropCells, ev.clientX, ev.clientY);
+    if (!cell) {
+      removeDropPreview(piecesLayer);
+      return null;
+    }
+    const col = Number(cell.dataset.x);
+    const row = Number(cell.dataset.y);
+    if (Number.isNaN(col) || Number.isNaN(row)) return null;
+    const piece = getPieceById(pieces, g.pieceId);
+    if (!piece) return null;
+    const excludePieceId = g.source === "grid" ? g.pieceId : undefined;
+    const isValid = canPlacePieceOnGrid(grid, piece, col, row, pieces, excludePieceId);
+    updateOrCreateDropPreview(piecesLayer, piece, col, row, minX, minY, isValid);
+    const rect = cell.getBoundingClientRect();
+    return { x: rect.left, y: rect.top };
+  });
+  setOnRelease(() => {
+    removeDropPreview(piecesLayer);
+  });
 
   wrapper.style.setProperty("--cols", String(cols));
   wrapper.style.setProperty("--rows", String(rows));
@@ -87,24 +137,34 @@ export function renderGrid(
       const pieceEl = e.target as HTMLElement;
       const pieceId = pieceEl.dataset.pieceId;
       const piece = pieceId ? getPieceById(pieces, pieceId) : undefined;
-      if (piece) grab(pieceId!, "grid", piece, e as MouseEvent);
+      if (!piece) return;
+      const rect = pieceEl.getBoundingClientRect();
+      const ev = e as MouseEvent;
+      const grabOffset: GrabOffset = {
+        offsetX: ev.clientX - rect.left,
+        offsetY: ev.clientY - rect.top,
+        sourceCellSize: CELL_SIZE,
+      };
+      grab(pieceId!, "grid", piece, ev, grabOffset);
     });
   });
 
   if (callbacks?.onDropFromBag) {
-    wrapper.querySelectorAll(".inventory-grid-drop-cell").forEach((cellEl) => {
-      cellEl.addEventListener("click", (e) => {
-        const g = getGrabbed();
-        if (!g || g.source !== "bag") return;
-        const col = Number((cellEl as HTMLElement).dataset.x);
-        const row = Number((cellEl as HTMLElement).dataset.y);
-        if (Number.isNaN(col) || Number.isNaN(row)) return;
-        const piece = getPieceById(pieces, g.pieceId);
-        if (!piece || !canPlacePieceOnGrid(grid, piece, col, row, pieces)) return;
-        e.stopPropagation();
-        callbacks.onDropFromBag!(g.pieceId, col, row);
-        release();
-      });
+    wrapper.addEventListener("click", (e) => {
+      const g = getGrabbed();
+      if (!g || g.source !== "bag") return;
+      if ((e.target as Element).closest(".inventory-grid-piece")) return;
+      const piece = getPieceById(pieces, g.pieceId);
+      if (!piece) return;
+      const cell = (e.target as Element).closest(".inventory-grid-drop-cell") as HTMLElement | null;
+      if (!cell) return;
+      const col = Number(cell.dataset.x);
+      const row = Number(cell.dataset.y);
+      if (Number.isNaN(col) || Number.isNaN(row)) return;
+      if (!canPlacePieceOnGrid(grid, piece, col, row, pieces)) return;
+      e.stopPropagation();
+      callbacks.onDropFromBag!(g.pieceId, col, row);
+      release();
     });
   }
 

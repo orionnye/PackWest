@@ -1,6 +1,6 @@
 import type { Piece, PiecePlacement } from "./types.js";
 import { getPieceBounds, getPieceOutline } from "./piece-utils.js";
-import { grab, getGrabbed, release } from "./grabber.js";
+import { grab, getGrabbed, release, type GrabOffset } from "./grabber.js";
 
 const PIECE_BAG_CELL_SIZE = 22;
 const COLS = 7;
@@ -80,7 +80,15 @@ export function renderPieceBag(
       const pieceEl = e.target as HTMLElement;
       const pieceId = pieceEl.dataset.pieceId;
       const piece = pieceId ? getPieceById(pieces, pieceId) : undefined;
-      if (piece) grab(pieceId!, "bag", piece, e as MouseEvent);
+      if (!piece) return;
+      const rect = pieceEl.getBoundingClientRect();
+      const ev = e as MouseEvent;
+      const grabOffset: GrabOffset = {
+        offsetX: ev.clientX - rect.left,
+        offsetY: ev.clientY - rect.top,
+        sourceCellSize: PIECE_BAG_CELL_SIZE,
+      };
+      grab(pieceId!, "bag", piece, ev, grabOffset);
     });
   });
 
