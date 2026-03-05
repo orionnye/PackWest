@@ -98,47 +98,6 @@ body::before {
     0 1px 0 var(--dungeon-stone-dark);
 }
 
-.inventory-grid {
-  display: grid;
-  grid-template-columns: repeat(var(--cols, 10), var(--cell-size, 40px));
-  grid-template-rows: repeat(var(--rows, 4), var(--cell-size, 40px));
-  gap: 3px;
-  padding: 16px;
-  overflow: hidden;
-  max-width: 100%;
-  box-sizing: border-box;
-  background:
-    linear-gradient(135deg, var(--dungeon-stone-dark) 0%, var(--dungeon-stone) 25%, var(--dungeon-stone-dark) 100%);
-  border: 4px solid var(--dungeon-stone-dark);
-  border-radius: 16px;
-  box-shadow:
-    inset 0 0 30px rgba(0, 0, 0, 0.4),
-    inset 0 2px 0 rgba(255, 255, 255, 0.08),
-    0 6px 0 var(--dungeon-stone-dark),
-    0 10px 24px var(--shadow-grungy);
-}
-
-.inventory-cell {
-  width: var(--cell-size, 40px);
-  height: var(--cell-size, 40px);
-  background:
-    linear-gradient(145deg, var(--cell-fill) 0%, var(--dungeon-stone-dark) 100%);
-  border: 2px solid var(--dungeon-stone-dark);
-  border-radius: 8px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
-}
-
-.inventory-cell:hover {
-  background:
-    linear-gradient(145deg, var(--cell-fill-hover) 0%, var(--dungeon-stone) 100%);
-  border-color: var(--moss-green);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
-    0 0 8px rgba(90, 122, 90, 0.3);
-}
-
 .inventory-minimized-row {
   display: flex;
   flex-wrap: nowrap;
@@ -179,42 +138,6 @@ body::before {
     0 0 12px rgba(90, 122, 90, 0.4),
     0 4px 8px var(--shadow-grungy);
 }
-
-.inventory-grid-minimized {
-  padding: 4px;
-  position: relative;
-}
-
-.inventory-grid-pieces-minimized {
-  inset: 4px;
-}
-
-.inventory-grid-active {
-  position: relative;
-}
-
-.inventory-grid-pieces {
-  position: absolute;
-  inset: 16px;
-  display: grid;
-  grid-template-columns: repeat(var(--cols, 10), var(--cell-size, 40px));
-  grid-template-rows: repeat(var(--rows, 4), var(--cell-size, 40px));
-  gap: 3px;
-  pointer-events: none;
-}
-
-.inventory-grid-pieces > * {
-  pointer-events: auto;
-}
-
-.inventory-grid-piece {
-  cursor: grab;
-}
-
-.inventory-grid-piece:active {
-  cursor: grabbing;
-}
-
 
 /* Piece bag (right side - 7x5 grid) */
 .inventory-piece-bag {
@@ -271,6 +194,18 @@ body::before {
   cursor: grabbing;
 }
 
+.inventory-cell {
+  width: var(--cell-size, 40px);
+  height: var(--cell-size, 40px);
+  background:
+    linear-gradient(145deg, var(--cell-fill) 0%, var(--dungeon-stone-dark) 100%);
+  border: 2px solid var(--dungeon-stone-dark);
+  border-radius: 8px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+}
+
 .inventory-piece {
   min-width: 0;
   min-height: 0;
@@ -300,42 +235,6 @@ body::before {
   opacity: 0.35;
   pointer-events: none;
   transition: opacity 0.15s;
-}
-
-/* Drop preview - one ghost cell per piece cell */
-.inventory-drop-preview-cell {
-  pointer-events: none;
-  z-index: 100;
-  width: var(--cell-size, 40px);
-  height: var(--cell-size, 40px);
-  background:
-    linear-gradient(145deg, rgba(90, 122, 90, 0.9) 0%, rgba(61, 90, 61, 0.9) 100%);
-  border: 2px solid var(--moss-green);
-  box-shadow: 0 2px 8px var(--shadow-grungy);
-  border-radius: 6px;
-  animation: drop-preview-pulse 0.8s ease-in-out infinite;
-}
-
-.inventory-drop-preview-cell-invalid {
-  background:
-    linear-gradient(145deg, rgba(122, 60, 60, 0.9) 0%, rgba(90, 40, 40, 0.9) 100%);
-  border-color: #a04040;
-  box-shadow: 0 2px 8px rgba(160, 64, 64, 0.5);
-  animation: drop-preview-invalid-pulse 0.8s ease-in-out infinite;
-}
-
-@keyframes drop-preview-pulse {
-  50% {
-    border-color: var(--accent-gold);
-    box-shadow: 0 2px 12px rgba(232, 201, 122, 0.5);
-  }
-}
-
-@keyframes drop-preview-invalid-pulse {
-  50% {
-    border-color: #d06060;
-    box-shadow: 0 2px 12px rgba(200, 80, 80, 0.6);
-  }
 }
 
 /* Grabber ghost - follows cursor when piece is held */

@@ -3,11 +3,12 @@ import { Store } from "@adobe/data/ecs";
 import {
   inventorySchema,
   renderGrid,
-  renderMinimizedGrid,
+  destroyGrid,
   renderPieceBag,
   createOvalGrid,
   canPlacePieceOnGrid,
   findNextBagSlot,
+  MINIMIZED_CELL_SIZE,
 } from "./inventory/index.js";
 import "./inventory/grid-display.css";
 
@@ -35,8 +36,8 @@ function randomInRange(min: number, max: number): number {
   return min + Math.random() * (max - min);
 }
 
-function renderAll(): void {
-  renderGrid(gridContainer, grid(), pieces(), {
+async function renderAll(): Promise<void> {
+  await renderGrid(gridContainer, grid(), pieces(), { interactive: true }, {
     onDropToGrid: (pieceId, col, row, source) => {
       const piece = pieces().find((p) => p.id === pieceId);
       const excludePieceId = source === "grid" ? pieceId : undefined;
@@ -46,7 +47,7 @@ function renderAll(): void {
       const gridPlacements = [...(grid().placements ?? []).filter((p) => p.pieceId !== pieceId), { pieceId, col, row }];
       store.resources.pieceBag = { ...pieceBag(), placements: bagPlacements };
       store.resources.grid = { ...grid(), placements: gridPlacements };
-      renderAll();
+      void renderAll();
     },
   });
   renderPieceBag(piecesContainer, pieces(), pieceBag().placements, {
@@ -58,32 +59,37 @@ function renderAll(): void {
       const gridPlacements = (grid().placements ?? []).filter((p) => p.pieceId !== pieceId);
       store.resources.pieceBag = { ...pieceBag(), placements: bagPlacements };
       store.resources.grid = { ...grid(), placements: gridPlacements };
-      renderAll();
+      void renderAll();
     },
   });
 }
 
-function renderMinimizedRow(): void {
+async function renderMinimizedRow(): Promise<void> {
+  Array.from(minimizedRow.children).forEach((child) => destroyGrid(child as HTMLElement));
   minimizedRow.innerHTML = "";
   for (let i = 0; i < gridHistory.length; i++) {
     const slot = document.createElement("div");
+    slot.className = "inventory-minimized-slot";
     const g = gridHistory[i];
-    renderMinimizedGrid(slot, g, pieces(), () => {
-      const current = grid();
-      if (current.cells.length > 0) {
-        gridHistory[i] = { cells: [...current.cells], placements: current.placements ? [...current.placements] : [] };
-      } else {
-        gridHistory.splice(i, 1);
-      }
-      store.resources.grid = { cells: [...g.cells], placements: [...(g.placements ?? [])] };
-      renderAll();
-      renderMinimizedRow();
-    });
     minimizedRow.appendChild(slot);
+    await renderGrid(slot, g, pieces(), {
+      cellSize: MINIMIZED_CELL_SIZE,
+      onClick: () => {
+        const current = grid();
+        if (current.cells.length > 0) {
+          gridHistory[i] = { cells: [...current.cells], placements: current.placements ? [...current.placements] : [] };
+        } else {
+          gridHistory.splice(i, 1);
+        }
+        store.resources.grid = { cells: [...g.cells], placements: [...(g.placements ?? [])] };
+        void renderAll();
+        void renderMinimizedRow();
+      },
+    });
   }
 }
 
-function applyGrid(pushCurrent = false): void {
+async function applyGrid(pushCurrent = false): Promise<void> {
   if (pushCurrent) {
     const current = grid();
     if (current.cells.length > 0) {
@@ -98,16 +104,16 @@ function applyGrid(pushCurrent = false): void {
     roundness: randomInRange(1.1, 1.35),
   };
   store.resources.grid = { ...createOvalGrid(gridParams), placements: [] };
-  renderAll();
-  renderMinimizedRow();
+  await renderAll();
+  await renderMinimizedRow();
 }
 
 const btn = document.createElement("button");
 btn.textContent = "Regenerate Grid";
 btn.className = "inventory-regenerate-btn";
 btn.type = "button";
-btn.addEventListener("click", () => applyGrid(true));
+btn.addEventListener("click", () => void applyGrid(true));
 
 topHalf.append(gridContainer, piecesContainer);
 app.append(btn, topHalf, minimizedRow);
-applyGrid(false);
+void applyGrid(false);
